@@ -1,13 +1,17 @@
 import tensorflow as tf
 import tensorflow_datasets as tfds
+import time
 import  os
 import io
 from nltk.translate.bleu_score import corpus_bleu
 from sklearn.model_selection import train_test_split
 
+## diagnostics to see how long each step takes
+start_time = time.time()
 ## load data
 german_data_path = os.path.join(os.path.curdir,"./data/europarl-v7.de-en.de")
 english_data_path = os.path.join(os.path.curdir,"./data/europarl-v7.de-en.en")
+print("Time required to load data --- %s seconds ---" % (time.time() - start_time))
 
 
 # english_dataset = []
@@ -22,45 +26,88 @@ english_data_path = os.path.join(os.path.curdir,"./data/europarl-v7.de-en.en")
 #
 # print(german_lines_dataset)
 
+## Load data from file and into a dataset in memory
+start_time = time.time()
 def create_dataset(germ_path, eng_path):
   germ_lines = io.open(germ_path, encoding='UTF-8').read().strip().split('\n')
   eng_lines = io.open(eng_path, encoding='UTF-8').read().strip().split('\n')
   return germ_lines, eng_lines
 german_data, english_data = create_dataset(german_data_path, english_data_path)
+print("Time required to create dataset --- %s seconds ---" % (time.time() - start_time))
 
-# german_data_test = german_data[int(.5*len(german_data)):]
-# english_data_test = english_data[int(.5*len(english_data)):]
 
-# print()
-
-# for i in range(1,11):
-#     print("English: \n", english_data[i])
-#     print("German: \n", german_data[i])
-
-# split data
-
-#toikenizers
-
-## commented out since they were crashing the program
+## Tokenize german and english sequences
+start_time = time.time()
 
 en_tokenizer = tf.keras.preprocessing.text.Tokenizer(filters='')
-en_tokenizer.fit_on_texts(english_data)
+## Uncomment these lines for first time running the program to configure tokenizer (helps speed up run time)
+# en_tokenizer.fit_on_texts(english_data)
+# english_config = en_tokenizer.to_json()
 
+english_config_path = os.path.join("./tokenizerConfig/english_config.json")
+## Uncomment these lines for first time running the program to configure tokenizer (helps speed up run time)
+# io.open(english_config_path,'w').write(english_config)
+# print("Wrote english config to ", english_config_path)
+
+## Comment lines out first time runnint to avoid reloading config
+english_config = io.open(english_config_path, encoding='UTF-8').read()
+en_tokenizer =  tf.keras.preprocessing.text.tokenizer_from_json(english_config)
+print("Read english tokenizer input from ", english_config_path)
+
+## Tokenize english data
 data_en = en_tokenizer.texts_to_sequences(english_data)
 data_en = tf.keras.preprocessing.sequence.pad_sequences(data_en,padding='post')
 
 ge_tokenizer = tf.keras.preprocessing.text.Tokenizer(filters='')
-ge_tokenizer.fit_on_texts(german_data)
 
+## Uncomment these lines for first time running the program to configure tokenizer (helps speed up run time)
+# ge_tokenizer.fit_on_texts(german_data)
+# german_config = ge_tokenizer.to_json()
+
+german_config_path = os.path.join("./tokenizerConfig/german_config.json")
+
+## Uncomment these lines for first time running the program to configure tokenizer (helps speed up run time)
+# io.open(german_config_path,'w').write(german_config)
+# print("Wrote german config to ", german_config_path)
+
+## Comment lines out first time runnint to avoid reloading config
+german_config = io.open(german_config_path, encoding='UTF-8').read()
+ge_tokenizer =  tf.keras.preprocessing.text.tokenizer_from_json(german_config)
+print("Read german tokenizer input from ", german_config_path)
+
+## tokenize german data
 data_ge = ge_tokenizer.texts_to_sequences(german_data)
 data_ge = tf.keras.preprocessing.sequence.pad_sequences(data_ge,padding='post')
 
+print("Time required to tokenize data --- %s seconds ---" % (time.time() - start_time))
 
 
-# slice data with an 80/20 split
-X_train,  X_test, Y_train, Y_test = train_test_split(english_data,german_data,test_size=0.6)
+start_time = time.time()
+## slice data with an 80/20 split
+X_train,  X_test, Y_train, Y_test = train_test_split(data_en,data_ge,test_size=0.6)
+print("Time required to slice data --- %s seconds ---" % (time.time() - start_time))
 
-# X_train =
+# def maxLength(arr):
+#     max = len(arr[0])
+#     for i in arr:
+#         if (len(arr[i])>max):
+#             max=len(arr[i])
+#     return arr
+
+# xLength = maxLength(X_train)
+
+# print("max length of sentience: \n" + xLength)
+
+## Convert data to tensor and print shape of X_train (english training data)
+X_train = tf.convert_to_tensor(X_train)
+print(X_train.shape)
+X_test = tf.convert_to_tensor(X_test)
+Y_train = tf.convert_to_tensor(Y_train)
+Y_test = tf.convert_to_tensor(Y_test)
+
+
+
+# print(X_train)
 
 ## Define model (cnn seq2seq)
 
@@ -75,30 +122,33 @@ Dtype = tf.float32
 
 # input_vocab_size = len(en_tokenizer.word_index)+1
 # output_vocab_size = len(ge_tokenizer.word_index)+ 1
-# dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
-# example_X, example_Y = next(iter(dataset))
-# #print(example_X.shape)
-# #print(example_Y.shape)
+dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
+example_X, example_Y = next(iter(dataset))
+print(example_X.shape)
+print(example_Y.shape)
 
 def buildModel():
-    # inputs = tf.keras.Input(shape=(64,16))
-
     model = tf.keras.Sequential(layers=[
-        tf.keras.layers.Conv1D(4,kernel_size=16,input_shape=(None,1)),
+        tf.keras.layers.Conv1D(64,kernel_size=16,input_size=(None,64,668)),
+        tf.keras.layers.MaxPool1D(),
         tf.keras.layers.Conv1D(16,kernel_size=4),
         tf.keras.layers.Dense(16),
+        tf.keras.layers.MaxPool1D(),
         tf.keras.layers.Dense(16),
         tf.keras.layers.Conv1DTranspose(16,kernel_size=4),
-        tf.keras.layers.Conv1DTranspose(64,kernel_size=16)])
-    # model.build(input_shape=tf.keras.Input(shape=(1,64,16)))
+        tf.keras.layers.Conv1DTranspose(64,kernel_size=16)
 
+        ])
     return model
 
-seq2seq = buildModel()
-# seq2seq = seq2seq(inputs)
-seq2seq.summary()
 
-# Train model and print results
+start_time = time.time()
+seq2seq = buildModel()
+print("Time required to create model --- %s seconds ---" % (time.time() - start_time))
+
+# seq2seq.summary()
+
+## Train model and print results
 seq2seq.compile(optimizer= 'adam',loss="binary_crossentropy")
-seq2seq.fit(x=X_train,y=Y_train,batch_size=BATCH_SIZE,epochs=10)
+seq2seq.fit(x=example_X,y=example_X,batch_size=BATCH_SIZE,epochs=10)
 seq2seq.save(filepath="./models/seq2seq")

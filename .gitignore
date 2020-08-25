@@ -1,4 +1,5 @@
-initalTest/data
+initalTest/data/*
 .git
 initalTest/.git
 initalTest/models/*
+initalTest/tokenizerConfig/*
