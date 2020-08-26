@@ -3,4 +3,3 @@ initalTest/data/*
 initalTest/.git
 initalTest/models/*
 initalTest/tokenizerConfig/*
-fairseq

@@ -84,7 +84,7 @@ print("Time required to tokenize data --- %s seconds ---" % (time.time() - start
 
 start_time = time.time()
 ## slice data with an 80/20 split
-X_train,  X_test, Y_train, Y_test = train_test_split(data_en,data_ge,test_size=0.6)
+X_train,  X_test, Y_train, Y_test = train_test_split(data_en,data_ge,test_size=0.8)
 print("Time required to slice data --- %s seconds ---" % (time.time() - start_time))
 
 # def maxLength(arr):
@@ -99,11 +99,14 @@ print("Time required to slice data --- %s seconds ---" % (time.time() - start_ti
 # print("max length of sentience: \n" + xLength)
 
 ## Convert data to tensor and print shape of X_train (english training data)
-X_train = tf.convert_to_tensor(X_train)
+Dtype = tf.float32
+
+X_train = tf.convert_to_tensor(X_train,dtype=Dtype)
+X_train = tf.reshape(X_train, [X_train.shape[0], X_train.shape[1], 1])
 print(X_train.shape)
-X_test = tf.convert_to_tensor(X_test)
-Y_train = tf.convert_to_tensor(Y_train)
-Y_test = tf.convert_to_tensor(Y_test)
+X_test = tf.convert_to_tensor(X_test,dtype=Dtype)
+Y_train = tf.convert_to_tensor(Y_train,dtype=Dtype)
+Y_test = tf.convert_to_tensor(Y_test,dtype=Dtype)
 
 
 
@@ -113,7 +116,7 @@ Y_test = tf.convert_to_tensor(Y_test)
 
 #Hyperparams            (from https://www.tensorflow.org/addons/tutorials/networks_seq2seq_nmt)
 BATCH_SIZE = 64
-BUFFER_SIZE = len(X_train)
+BUFFER_SIZE = 16 #len(X_train)
 steps_per_epoch = BUFFER_SIZE//BATCH_SIZE
 embedding_dims = 256
 rnn_units = 1024
@@ -124,19 +127,24 @@ Dtype = tf.float32
 # output_vocab_size = len(ge_tokenizer.word_index)+ 1
 dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
 example_X, example_Y = next(iter(dataset))
+example_X = tf.reshape(example_X,[example_X.shape[0],example_X.shape[1],1])
+# example_X.set_shape([example_X.shape[0],example_X.shape[1],1])
 print(example_X.shape)
 print(example_Y.shape)
 
 def buildModel():
     model = tf.keras.Sequential(layers=[
-        tf.keras.layers.Conv1D(64,kernel_size=16,input_size=(None,64,668)),
-        tf.keras.layers.MaxPool1D(),
-        tf.keras.layers.Conv1D(16,kernel_size=4),
+        # tf.keras.layers.LSTM(64),
+        tf.keras.layers.LSTM(16),
+        # tf.keras.layers.Conv1D(64,kernel_size=1), #input_shape=(64,668)
+        # tf.keras.layers.MaxPool1D(),
+        # tf.keras.layers.Conv1D(16,kernel_size=1),
         tf.keras.layers.Dense(16),
-        tf.keras.layers.MaxPool1D(),
+        # # tf.keras.layers.MaxPool1D(),
+        #
         tf.keras.layers.Dense(16),
-        tf.keras.layers.Conv1DTranspose(16,kernel_size=4),
-        tf.keras.layers.Conv1DTranspose(64,kernel_size=16)
+        # tf.keras.layers.Conv1DTranspose(16,kernel_size=4),
+        # tf.keras.layers.Conv1DTranspose(64,kernel_size=16)
 
         ])
     return model
@@ -149,6 +157,6 @@ print("Time required to create model --- %s seconds ---" % (time.time() - start_
 # seq2seq.summary()
 
 ## Train model and print results
-seq2seq.compile(optimizer= 'adam',loss="binary_crossentropy")
+seq2seq.compile(optimizer= 'adam',loss="categorical_crossentropy")
 seq2seq.fit(x=example_X,y=example_X,batch_size=BATCH_SIZE,epochs=10)
 seq2seq.save(filepath="./models/seq2seq")
