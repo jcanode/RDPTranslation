@@ -1,5 +1,5 @@
 import tensorflow as tf
-import tensorflow_datasets as tfds
+# import tensorflow_datasets as tfds
 import time
 import  os
 import io
@@ -77,7 +77,7 @@ print("Read german tokenizer input from ", german_config_path)
 
 ## tokenize german data
 data_ge = ge_tokenizer.texts_to_sequences(german_data)
-data_ge = tf.keras.preprocessing.sequence.pad_sequences(data_ge,padding='post')
+data_ge = tf.keras.preprocessing.sequence.pad_sequences(data_ge,padding='post',maxlen=668) ##pad german dataset to same length as english 
 
 print("Time required to tokenize data --- %s seconds ---" % (time.time() - start_time))
 
@@ -105,7 +105,10 @@ X_train = tf.convert_to_tensor(X_train,dtype=Dtype)
 X_train = tf.reshape(X_train, [X_train.shape[0], X_train.shape[1], 1])
 print(X_train.shape)
 X_test = tf.convert_to_tensor(X_test,dtype=Dtype)
+
 Y_train = tf.convert_to_tensor(Y_train,dtype=Dtype)
+Y_train = tf.reshape(Y_train, [Y_train.shape[0], Y_train.shape[1], 1])
+
 Y_test = tf.convert_to_tensor(Y_test,dtype=Dtype)
 
 
@@ -128,26 +131,86 @@ Dtype = tf.float32
 dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
 example_X, example_Y = next(iter(dataset))
 example_X = tf.reshape(example_X,[example_X.shape[0],example_X.shape[1],1])
+example_Y = tf.reshape(example_Y,[example_Y.shape[0],example_Y.shape[1],1])
+
 # example_X.set_shape([example_X.shape[0],example_X.shape[1],1])
 print(example_X.shape)
 print(example_Y.shape)
 
+# def buildModel():
+#     model = tf.keras.Sequential(layers=[
+#         # tf.keras.layers.LSTM(64),
+#         tf.keras.layers.LSTM(16),
+#         # tf.keras.layers.Conv1D(64,kernel_size=1), #input_shape=(64,668)
+#         # tf.keras.layers.MaxPool1D(),
+#         # tf.keras.layers.Conv1D(16,kernel_size=1),
+#         tf.keras.layers.Dense(16),
+#         # # tf.keras.layers.MaxPool1D(),
+#         #
+#         tf.keras.layers.Dense(16),
+#         # tf.keras.layers.Conv1DTranspose(16,kernel_size=4),
+#         # tf.keras.layers.Conv1DTranspose(64,kernel_size=16)
+
+#         ])
+
+
+#     return model
+
+
 def buildModel():
     model = tf.keras.Sequential(layers=[
         # tf.keras.layers.LSTM(64),
-        tf.keras.layers.LSTM(16),
+        # tf.keras.layers.LSTM(16),
+        tf.keras.layers.Conv1D(668,kernel_size=1),
+        tf.keras.layers.Conv1D(128,kernel_size=1),
+        tf.keras.layers.Conv1D(64,kernel_size=1),
+        tf.keras.layers.Conv1D(1,kernel_size=1),
+        tf.keras.layers.Flatten(),
         # tf.keras.layers.Conv1D(64,kernel_size=1), #input_shape=(64,668)
         # tf.keras.layers.MaxPool1D(),
         # tf.keras.layers.Conv1D(16,kernel_size=1),
+        # tf.keras.layers.Dense(16),
+        # # # tf.keras.layers.MaxPool1D(),
+        # #
         tf.keras.layers.Dense(16),
-        # # tf.keras.layers.MaxPool1D(),
-        #
-        tf.keras.layers.Dense(16),
-        # tf.keras.layers.Conv1DTranspose(16,kernel_size=4),
-        # tf.keras.layers.Conv1DTranspose(64,kernel_size=16)
+        tf.keras.layers.Dense(128),
+        tf.keras.layers.Dense(668),
+
+        # tf.keras.layers.Conv1DTranspose(1,kernel_size=1),
+        # tf.keras.layers.Conv1DTranspose(668,kernel_size=1)
 
         ])
     return model
+
+
+## secondary experimental model
+def buildModel2():
+    model = tf.keras.Sequential(layers=[
+        # tf.keras.layers.LSTM(64),
+        # tf.keras.layers.LSTM(16),
+        # tf.keras.layers.Conv1D(668,kernel_size=1),
+        # tf.keras.layers.Conv1D(128,kernel_size=1),
+        # tf.keras.layers.Conv1D(64,kernel_size=1),
+        # tf.keras.layers.Conv1D(1,kernel_size=1),
+        tf.keras.layers.Flatten(),
+        # tf.keras.layers.Conv1D(64,kernel_size=1), #input_shape=(64,668)
+        # tf.keras.layers.MaxPool1D(),
+        # tf.keras.layers.Conv1D(16,kernel_size=1),
+        # tf.keras.layers.Dense(16),
+        # # # tf.keras.layers.MaxPool1D(),
+        # #
+        tf.keras.layers.Dense(668),
+        tf.keras.layers.Dense(668),
+        tf.keras.layers.Dense(668),
+        tf.keras.layers.Dense(668),
+        tf.keras.layers.Dense(668),
+        tf.keras.layers.Dense(668),
+        # tf.keras.layers.Conv1DTranspose(1,kernel_size=1),
+        # tf.keras.layers.Conv1DTranspose(668,kernel_size=1)
+
+        ])
+    return model
+
 
 
 start_time = time.time()
@@ -158,5 +221,5 @@ print("Time required to create model --- %s seconds ---" % (time.time() - start_
 
 ## Train model and print results
 seq2seq.compile(optimizer= 'adam',loss="categorical_crossentropy")
-seq2seq.fit(x=example_X,y=example_X,batch_size=BATCH_SIZE,epochs=10)
+seq2seq.fit(x=example_X,y=example_Y,batch_size=BATCH_SIZE,epochs=100)
 seq2seq.save(filepath="./models/seq2seq")
