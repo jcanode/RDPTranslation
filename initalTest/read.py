@@ -5,7 +5,7 @@ import numpy as np
 import  time
 from sklearn.model_selection import train_test_split
 
-english_data_path = os.path.join('./data/tokenized/data_en.en')
+english_data_ path = os.path.join('./data/tokenized/data_en.en')
 german_data_path = os.path.join("./data/tokenized/data_de.de")
 
 english_data = np.fromfile(english_data_path)
