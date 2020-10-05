@@ -2,12 +2,16 @@ import tensorflow as tf
 import os
 import time
 import numpy as np
-## Load data
-dataset_path = os.path.join("./data/")
 
-dataset = tf.data.experimental.load(dataset_path,element_spec=tf.TensorSpec(shape=(64,334,1)))
 
-print(len(list(dataset)))
+def load():
+    # Justin's Path
+    dataset_path = os.path.join("./data/")
+    # Emilee's Path
+    # dataset_path = os.path.join("C:/Users/User/Documents/GitHub/RDPTranslation/data/")
+    dataset = tf.data.experimental.load(dataset_path,element_spec=tf.TensorSpec(shape=(64, 334, 1)))
+    print(len(list(dataset)))
+    return dataset
 
 # print(list(dataset))
 # next(iter(dataset))
@@ -71,8 +75,11 @@ def buildModel2():
 
         ])
     return model
-##train model
 
+
+dataset = load()
+
+# train model
 start_time = time.time()
 seq2seq = buildModel()
 print("Time required to create model --- %s seconds ---" % (time.time() - start_time))
@@ -81,7 +88,6 @@ print("Time required to create model --- %s seconds ---" % (time.time() - start_
 
 ## Train model and print results
 seq2seq.compile(optimizer= 'adam',loss="mean_squared_error")
-seq2seq.fit(dataset,epochs=100)
+seq2seq.fit(dataset, epochs=100)
 # seq2seq.fit(np.random.randn(10,512,16), np.random.randn(10,334),epochs=100)
 # seq2seq.save(filepath="./models/seq2seq")
- 
