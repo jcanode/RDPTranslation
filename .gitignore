@@ -1,6 +1,6 @@
-initalTest/data/*
+initialTest/data/*
 .git
-initalTest/.git
-initalTest/models/*
-initalTest/tokenizerConfig/*
+initialTest/.git
+initialTest/models/*
+initialTest/tokenizerConfig/*
 fairseq
