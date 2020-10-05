@@ -63,7 +63,7 @@ def join_sentences(english_data, spanish_data):
     spanish_result = []
     english_result = []
     combined_data = []
-    for i in range(1, 30000):  ## only run on first 30k lines
+    for i in range(1, 30000):  # only run on first 30k lines
         spanish_lines_clean = preprocess_sentence(span_lines[i])
         english_lines_clean = preprocess_sentence(eng_lines[i])
         combined_data.append(english_lines_clean)
@@ -87,10 +87,7 @@ data, spanish_data, english_data = join_sentences(path_to_english_file, path_to_
 # 3. Return word pairs in the format: [ENGLISH, SPANISH]
 def create_dataset(path, num_examples):
     lines = io.open(path, encoding='UTF-8').read().strip().split('\n')
-
-
     word_pairs = [[preprocess_sentence(w) for w in l.split('\t')] for l in lines[:num_examples]]
-
     return zip(*word_pairs)
 
 
@@ -98,23 +95,17 @@ def tokenize(lang):
     lang_tokenizer = tf.keras.preprocessing.text.Tokenizer(
         filters='')
     lang_tokenizer.fit_on_texts(lang)
-
-
     tensor = lang_tokenizer.texts_to_sequences(lang)
-
     tensor = tf.keras.preprocessing.sequence.pad_sequences(tensor, dtype='float32', maxlen=179,
                                                            padding='post')
-
     return tensor, lang_tokenizer
 
 
 def load_dataset(path, num_examples=None):
     # creating cleaned input, output pairs
     #   targ_lang, inp_lang = create_dataset(path, num_examples)
-
     input_tensor, inp_lang_tokenizer = tokenize(english_data)
     target_tensor, targ_lang_tokenizer = tokenize(spanish_data)
-
     return input_tensor, target_tensor, inp_lang_tokenizer, targ_lang_tokenizer
 
 
@@ -136,7 +127,6 @@ max_length_targ, max_length_inp = target_tensor.shape[1], input_tensor.shape[1]
 input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor,
                                                                                                 target_tensor,
                                                                                                 test_size=0.2)
-
 # Show length
 print(len(input_tensor_train), len(target_tensor_train), len(input_tensor_val), len(target_tensor_val))
 
@@ -155,7 +145,7 @@ convert(targ_lang, target_tensor_train[0])
 
 BUFFER_SIZE = len(input_tensor_train)
 # BATCH_SIZE = 64
-## for custom model use
+# for custom model use
 BATCH_SIZE = 179
 steps_per_epoch = len(input_tensor_train) // BATCH_SIZE
 embedding_dim = 256
@@ -167,8 +157,7 @@ dataset = tf.data.Dataset.from_tensor_slices((input_tensor_train, target_tensor_
 dataset = dataset.batch(BATCH_SIZE, drop_remainder=True)
 
 example_input_batch, example_target_batch = next(iter(dataset))
-example_input_batch.shape, example_target_batch.shape
-
+# example_input_batch.shape, example_target_batch.shape
 
 optimizer = tf.keras.optimizers.Adam()
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
@@ -184,7 +173,7 @@ def loss_function(real, pred):
     return tf.reduce_mean(loss_)
 
 
-def buildModel():
+def build_model():
     model = tf.keras.Sequential(layers=[
         tf.keras.layers.Conv1D(179, kernel_size=1),
         tf.keras.layers.Conv1D(64, kernel_size=1),
@@ -203,35 +192,38 @@ def buildModel():
     return model
 
 
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        # Currently, memory growth needs to be the same across GPUs
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    except RuntimeError as e:
-        # Memory growth must be set before GPUs have been initialized
-        print(e)
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        # Currently, memory growth needs to be the same across GPUs
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    except RuntimeError as e:
-        # Memory growth must be set before GPUs have been initialized
-        print(e)
+def gpu_setup():
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        try:
+            # Currently, memory growth needs to be the same across GPUs
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+            return logical_gpus
+        except RuntimeError as e:
+            # Memory growth must be set before GPUs have been initialized
+            print(e)
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        try:
+            # Currently, memory growth needs to be the same across GPUs
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+            return logical_gpus
+        except RuntimeError as e:
+            # Memory growth must be set before GPUs have been initialized
+            print(e)
 
 
 # seq2seq.summary()
 
 # with tf.device('/cpu:0'): ## comment out to run on gpu
 #     start_time = time.time()
-#     seq2seq = buildModel()
+#     seq2seq = build_model()
 #     print("Time required to create model --- %s seconds ---" % (time.time() - start_time))
 
 #     ## Train model and print results
@@ -249,13 +241,18 @@ if gpus:
 #     #     seq2seq.fit(x=input_tensor_train,y=target_tensor_train,epochs=10)
 #     seq2seq.summary()
 #     seq2seq.save(filepath="./models/dense")
+
+
 start_time = time.time()
-seq2seq = buildModel()
+seq2seq = build_model()
 print("Time required to create model --- %s seconds ---" % (time.time() - start_time))
-## Train model and print results
+# Train model and print results
 seq2seq.compile(optimizer='adam', loss='mean_squared_logarithmic_error')
 seq2seq.build(input_shape=(668, 64, 1))
 # seq2seq.summary()
+
+
+# TODO: What does this code do -- are we using it -- should we place within method?
 start_time = time.time()
 for (batch, (inp, targ)) in enumerate(dataset.take(32)):
     inp = tf.reshape(inp, [inp.shape[0], inp.shape[1], 1])

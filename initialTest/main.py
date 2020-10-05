@@ -8,8 +8,6 @@ from sklearn.model_selection import train_test_split
 from initialTest import datapreprocess
 
 
-german_data_path, english_data_path = datapreprocess.load_data()
-
 # english_dataset = []
 # english_lines_dataset = tf.data.TextLineDataset(english_data_path)
 # # labeled_dataset = lines_dataset.map(lambda ex: labeler(ex, i))
@@ -22,15 +20,13 @@ german_data_path, english_data_path = datapreprocess.load_data()
 #
 # print(german_lines_dataset)
 
-german_data, english_data = datapreprocess.create_dataset(german_data_path, english_data_path)
-data_en = datapreprocess.english_tokenizer(english_data)
-data_ge = datapreprocess.german_tokenizer(german_data)
 
-# TODO: Check code below
-start_time = time.time()
-## slice data with an 80/20 split
-X_train,  X_test, Y_train, Y_test = train_test_split(data_en,data_ge,test_size=0.8)
-print("Time required to slice data --- %s seconds ---" % (time.time() - start_time))
+# Slice 80/20
+def slice(data_en, data_ge):
+    start_time = time.time()
+    X_train,  X_test, Y_train, Y_test = train_test_split(data_en, data_ge, test_size=0.8)
+    print("Time required to slice data --- %s seconds ---" % (time.time() - start_time))
+    return X_train, X_test, Y_train, Y_test
 
 # def maxLength(arr):
 #     max = len(arr[0])
@@ -43,46 +39,46 @@ print("Time required to slice data --- %s seconds ---" % (time.time() - start_ti
 
 # print("max length of sentience: \n" + xLength)
 
-## Convert data to tensor and print shape of X_train (english training data)
-Dtype = tf.float32
 
-X_train = tf.convert_to_tensor(X_train,dtype=Dtype)
-X_train = tf.reshape(X_train, [X_train.shape[0], X_train.shape[1], 1])
-print(X_train.shape)
-X_test = tf.convert_to_tensor(X_test,dtype=Dtype)
-
-Y_train = tf.convert_to_tensor(Y_train,dtype=Dtype)
-Y_train = tf.reshape(Y_train, [Y_train.shape[0], Y_train.shape[1], 1])
-
-Y_test = tf.convert_to_tensor(Y_test,dtype=Dtype)
-
+# Convert data to tensor and print shape of X_train (english training data)
+def convert_to_tensor(X_train, X_test, Y_train, Y_test):
+    Dtype = tf.float32
+    X_train = tf.convert_to_tensor(X_train,dtype=Dtype)
+    X_train = tf.reshape(X_train, [X_train.shape[0], X_train.shape[1], 1])
+    print(X_train.shape)
+    X_test = tf.convert_to_tensor(X_test,dtype=Dtype)
+    Y_train = tf.convert_to_tensor(Y_train,dtype=Dtype)
+    Y_train = tf.reshape(Y_train, [Y_train.shape[0], Y_train.shape[1], 1])
+    Y_test = tf.convert_to_tensor(Y_test,dtype=Dtype)
 
 
 # print(X_train)
 
-## Define model (cnn seq2seq)
+# Define model (cnn seq2seq)
+def define_model(X_train, Y_train):
+    # Hyperparams            (from https://www.tensorflow.org/addons/tutorials/networks_seq2seq_nmt)
+    BATCH_SIZE = 64
+    BUFFER_SIZE = 16 #len(X_train)
+    steps_per_epoch = BUFFER_SIZE//BATCH_SIZE
+    embedding_dims = 256
+    rnn_units = 1024
+    dense_units = 1024
+    Dtype = tf.float32
 
-#Hyperparams            (from https://www.tensorflow.org/addons/tutorials/networks_seq2seq_nmt)
-BATCH_SIZE = 64
-BUFFER_SIZE = 16 #len(X_train)
-steps_per_epoch = BUFFER_SIZE//BATCH_SIZE
-embedding_dims = 256
-rnn_units = 1024
-dense_units = 1024
-Dtype = tf.float32
+    # input_vocab_size = len(en_tokenizer.word_index)+1
+    # output_vocab_size = len(ge_tokenizer.word_index)+ 1
+    dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
+    example_X, example_Y = next(iter(dataset))
+    example_X = tf.reshape(example_X,[example_X.shape[0],example_X.shape[1],1])
+    example_Y = tf.reshape(example_Y,[example_Y.shape[0],example_Y.shape[1],1])
 
-# input_vocab_size = len(en_tokenizer.word_index)+1
-# output_vocab_size = len(ge_tokenizer.word_index)+ 1
-dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
-example_X, example_Y = next(iter(dataset))
-example_X = tf.reshape(example_X,[example_X.shape[0],example_X.shape[1],1])
-example_Y = tf.reshape(example_Y,[example_Y.shape[0],example_Y.shape[1],1])
+    # example_X.set_shape([example_X.shape[0],example_X.shape[1],1])
+    print(example_X.shape)
+    print(example_Y.shape)
+    return example_X, example_Y
 
-# example_X.set_shape([example_X.shape[0],example_X.shape[1],1])
-print(example_X.shape)
-print(example_Y.shape)
 
-# def buildModel():
+# def build_model():
 #     model = tf.keras.Sequential(layers=[
 #         # tf.keras.layers.LSTM(64),
 #         tf.keras.layers.LSTM(16),
@@ -102,7 +98,7 @@ print(example_Y.shape)
 #     return model
 
 
-def buildModel():
+def build_model():
     model = tf.keras.Sequential(layers=[
         # tf.keras.layers.LSTM(64),
         # tf.keras.layers.LSTM(16),
@@ -129,7 +125,7 @@ def buildModel():
 
 
 ## secondary experimental model
-def buildModel2():
+def build_model_two():
     model = tf.keras.Sequential(layers=[
         # tf.keras.layers.LSTM(64),
         # tf.keras.layers.LSTM(16),
@@ -157,14 +153,38 @@ def buildModel2():
     return model
 
 
+def train(seq2seq):
+    # Train model and print results
+    seq2seq.compile(optimizer= 'adam',loss="categorical_crossentropy")
+    seq2seq.fit(x=example_X,y=example_Y,batch_size=BATCH_SIZE,epochs=100)
+    seq2seq.save(filepath="./models/seq2seq")
 
-start_time = time.time()
-seq2seq = buildModel()
-print("Time required to create model --- %s seconds ---" % (time.time() - start_time))
 
-# seq2seq.summary()
+def main():
+    german_data_path, english_data_path = datapreprocess.load_data()
+    german_data, english_data = datapreprocess.create_dataset(german_data_path, english_data_path)
+    data_en = datapreprocess.english_tokenizer(english_data)
+    data_ge = datapreprocess.german_tokenizer(german_data)
+    X_train, X_test, Y_train, Y_test = slice(data_en, data_ge)
+    convert_to_tensor(X_train, X_test, Y_train, Y_test)
+    example_X, example_Y = define_model(X_train, Y_train)
+    start_time = time.time()
+    seq2seq = build_model()
+    print("Time required to create model --- %s seconds ---" % (time.time() - start_time))
+    # seq2seq.summary()
+    train(seq2seq)
 
-## Train model and print results
-seq2seq.compile(optimizer= 'adam',loss="categorical_crossentropy")
-seq2seq.fit(x=example_X,y=example_Y,batch_size=BATCH_SIZE,epochs=100)
-seq2seq.save(filepath="./models/seq2seq")
+
+def main_2():
+    german_data_path, english_data_path = datapreprocess.load_data()
+    german_data, english_data = datapreprocess.create_dataset(german_data_path, english_data_path)
+    data_en = datapreprocess.english_tokenizer(english_data)
+    data_ge = datapreprocess.german_tokenizer(german_data)
+    X_train, X_test, Y_train, Y_test = slice(data_en, data_ge)
+    convert_to_tensor(X_train, X_test, Y_train, Y_test)
+    example_X, example_Y = define_model(X_train, Y_train)
+    start_time = time.time()
+    seq2seq = build_model_two()
+    print("Time required to create model --- %s seconds ---" % (time.time() - start_time))
+    # seq2seq.summary()
+    train(seq2seq)
