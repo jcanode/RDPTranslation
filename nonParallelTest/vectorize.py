@@ -12,43 +12,46 @@ from pprint import pprint  # pretty-printer
 from collections import defaultdict
 from smart_open import open  # for transparently opening remote files
 import unicodedata
+from gensim import models
+import os
+from gensim import similarities
+import tempfile
+
 
 # set up logging
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 
 
+corpus = corpora.MmCorpus('./tmp/corpus.mm')
 
-path = u"C:/Users/User/Documents/RDP2020/NMT/RDPTranslation/data/europarl-v7.de-en.en"
+document_path = u"C:/Users/justi/documents/RDPTranslation/data/english-data.txt"
+
+# path = u"C:/Users/justi/documents/RDPTranslation/data/english-data.txt"
 # # collect statistics about all tokens
 
 
-# dictionary = corpora.Dictionary(line.lower().split() for line in open(path, encoding="utf8"))
+dictionary = corpora.Dictionary.load('./tmp/englishDict.dict')
 
+# corpus = [dictionary.doc2bow(text) for text in texts]
 
-# # remove stop words and words that appear only once
-# stoplist = set('for a of the and to in'.split())
+tfidf = models.TfidfModel(corpus)  # step 1 -- initialize a model
 
-# stop_ids = [
-#     dictionary.token2id[stopword]
-#     for stopword in stoplist
-#     if stopword in dictionary.token2id
-# ]
-# once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.items() if docfreq == 1]
-# dictionary.filter_tokens(stop_ids + once_ids)  # remove stop words and words that appear only once
-# dictionary.compactify()  # remove gaps in id sequence after words that were removed
-# dictionary.save('./tmp/englishDict.dict')
-# print(dictionary)
-# #
+corpus_tfidf = tfidf[corpus]
+# for doc in corpus_tfidf:
+#     print(doc)
+lsi = models.LsiModel(corpus)
+corpus_lsi = lsi[corpus]
 
-# dictionary = corpora.Dictionary.load('./tmp/englishDict.dict')
+lsi_model = models.LsiModel(corpus_tfidf, id2word=dictionary, num_topics=2)  # initialize an LSI transformation
+# corpus_lsi = lsi_model[corpus_tfidf]  # create a double wrapper over the original corpus: bow->tfidf->fold-in-lsi
 
+lsi_model.print_topics(2)
+# # both bow->tfidf and tfidf->lsi transformations are actually executed here, on the fly
+# # for doc, as_text in zip(corpus_lsi, dictionary):
+# #     print(doc, as_text)
 
-# class MyCorpus:
-#     def __iter__(self):
-#         for line in open(path):
-#             # assume there's one document per line, tokens separated by whitespace
-#             yield dictionary.doc2bow(line.lower().split())
+with tempfile.NamedTemporaryFile(prefix='model-', suffix='.lsi', delete=False) as tmp:
+    lsi_model.save(tmp.name)  # same for tfidf, lda, ...
 
-# corpus_memory_friendly = MyCorpus()  # doesn't load the corpus into memory!
-# print(corpus_memory_friendly)
+# index = similarities.MatrixSimilarity(lsi[corpus])  # transform corpus to LSI space and index it
