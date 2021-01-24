@@ -1,0 +1,5 @@
+# created by virtualenv automatically
+/Lib
+/Scripts
+/__pycache__
+/word2vec.*

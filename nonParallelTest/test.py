@@ -26,5 +26,5 @@ loaded_lsi_model = models.LsiModel.load(tmp_file)
 
 model = models.LsiModel(tfidf_corpus, id2word=dictionary, num_topics=300)
 
-gov_answers = model.most_similar('government')
+# gov_answers = model.most_similar('government')
 print(gov_answers)
